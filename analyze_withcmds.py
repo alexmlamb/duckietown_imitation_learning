@@ -7,13 +7,14 @@ import numpy as np
 from data_loader import get_batch
 from predictor_models import Predictor
 
-num_images_back = 3
+num_images_back = 1
 num_targets_forward = 1
+num_targets_back = 1
 
 print "num images back", num_images_back
 print "num targets forward", num_targets_forward
 
-predictor = Predictor(num_images_back, num_targets_forward)
+predictor = Predictor(num_images_back, num_targets_forward, num_targets_back)
 
 predictor.cuda()
 
@@ -28,12 +29,13 @@ def evaluate(segment,n_batches):
     loss_lst_heading = []
 
     for iteration in range(0,n_batches):
-        images, targets = get_batch(128, segment, num_images_back, num_targets_forward)
+        images, targets, targets_past = get_batch(128, segment, num_images_back, num_targets_forward, num_targets_back)
 
         images = norm(to_var(torch.from_numpy(images)))
         targets = to_var(torch.from_numpy(targets))
+        targets_past = to_var(torch.from_numpy(targets_past))
 
-        pred = predictor(images)
+        pred = predictor(images,targets_past)
 
         loss_v = torch.abs(pred - targets)[:,0::2].mean()
         loss_h = torch.abs(pred - targets)[:,1::2].mean()
@@ -46,18 +48,15 @@ def evaluate(segment,n_batches):
 
 if __name__ == "__main__":
 
-    for iteration in range(0,20000):
+    for iteration in range(0,2000):
 
-        images, targets = get_batch(128, "train", num_images_back, num_targets_forward)
-
-        print targets
-
-        raise Exception('done')
+        images, targets, targets_past = get_batch(128, "train", num_images_back, num_targets_forward, num_targets_back)
 
         images = norm(to_var(torch.from_numpy(images)))
         targets = to_var(torch.from_numpy(targets))
+        targets_past = to_var(torch.from_numpy(targets_past))
 
-        pred = predictor(images)
+        pred = predictor(images, targets_past)
 
         loss = torch.abs(pred - targets).mean()
 
@@ -69,6 +68,8 @@ if __name__ == "__main__":
             print iteration
             print "train velocity/heading", evaluate("train",20)
             print "test velocity/heading", evaluate("test",20)
+
+            torch.save(predictor, 'pred_model_duck.pt')
 
     print images.shape
     print targets.shape
